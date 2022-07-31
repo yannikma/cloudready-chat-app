@@ -1,4 +1,4 @@
-# CloudComputing SoSe22 Gruppe 1
+# An Example of a cloud ready chat-app
 
 ## Getting started
 To start the project simply run the following command in the root directory of the project:
