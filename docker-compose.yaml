@@ -1,0 +1,80 @@
+version: "3.8"
+services:
+  nginx:
+    container_name: loadbalancer
+    build: ./nginx
+    ports:
+      - '8080:80'
+    depends_on:
+      - chat-app-instance-1
+      - chat-app-instance-2
+    restart: always
+  chat-app-instance-1:
+    container_name: chat-app-instance-1
+    # To use this image you need to be logged in to your gitlab docker registry.
+    # image: gitlab.reutlingen-university.de:5050/mayery/cloudcomputing_sose22/chat-app
+
+    # Building or taking the existing local image of the chat-app
+    build: chat_app/
+    # Expose host to container port
+    ports:
+      - '3000'
+      # Will ensure, that the mongoDB service gets started first
+    depends_on:
+      - mongodb
+    env_file:
+      - ./env/backend_01.env
+  chat-app-instance-2:
+    container_name: chat-app-instance-2
+    # To use this image you need to be logged in to your gitlab docker registry.
+    # image: gitlab.reutlingen-university.de:5050/mayery/cloudcomputing_sose22/chat-app
+
+    # Building or taking the existing local image of the chat-app
+    build: ./chat_app/
+    # Expose host to container port
+    ports:
+      - '3000'
+      # Will ensure, that the mongoDB service gets started first
+    depends_on:
+      - mongodb
+      - redis
+    env_file:
+      - ./env/backend_02.env
+  mongodb:
+    container_name: mongodb
+    image: 'mongo'
+    env_file:
+      - ./env/mongo.env
+    volumes:
+      # We store our userdata persistent on our local machine. So the data survives when the database goes down and up again.
+      - userdata:/data/db
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus
+    # Expose host to container port
+    ports:
+      - '9091:9090'
+    command: --config.file=/etc/prometheus/prometheus.yaml
+    volumes:
+      - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    # Expose host to container port
+    ports:
+      - '4000:3000'
+  redis:
+    image: redis
+    container_name: redis
+    ports:
+      - '6379:6379'
+volumes:
+  userdata:
+  grafana_data:

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <style>
+        * {
+            box-sizing: border-box
+        }
+
+        /* Add padding to containers */
+        .container {
+            padding: 16px;
+        }
+
+        /* Full-width input fields */
+        input[type=text], input[type=password] {
+            width: 100%;
+            padding: 15px;
+            margin: 5px 0 22px 0;
+            display: inline-block;
+            border: none;
+            background: #f1f1f1;
+        }
+
+        input[type=text]:focus, input[type=password]:focus {
+            background-color: #ddd;
+            outline: none;
+        }
+
+        /* Overwrite default styles of hr */
+        hr {
+            border: 1px solid #f1f1f1;
+            margin-bottom: 25px;
+        }
+
+        /* Set a style for the submit/register button */
+        .registerbtn {
+            background-color: #04AA6D;
+            color: white;
+            padding: 16px 20px;
+            margin: 8px 0;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            opacity: 0.9;
+        }
+
+        .registerbtn:hover {
+            opacity: 1;
+        }
+
+        /* Add a blue text color to links */
+        a {
+            color: dodgerblue;
+        }
+
+        /* Set a grey background color and center the text of the "sign in" section */
+        .signin {
+            background-color: #f1f1f1;
+            text-align: center;
+        }
+    </style>
+</head>
+
+
+<body>
+<form id="form" action="">
+    <div class="container">
+        <h1>Login</h1>
+        <p>Please enter your credentials</p>
+        <hr>
+
+        <label for="user"><b>Username</b></label>
+        <input type="text" placeholder="Enter Username" name="username" id="user" required>
+
+        <label for="pass"><b>Password</b></label>
+        <input type="password" placeholder="Enter Password" name="pass" id="pass" required>
+        <p id="loginState"></p>
+
+        <hr>
+
+        <button type="submit" class="registerbtn">Login</button>
+    </div>
+
+    <div class="container signin">
+        <p>Don't have an account? <a href="register.html">Create an Account</a>.</p>
+    </div>
+</form>
+
+<script>
+
+    document.querySelector('button')
+        .addEventListener('click', (e) => {
+            e.preventDefault();
+            const username = document
+                .querySelector('#user').value;
+
+            const password = document
+                .querySelector('#pass').value;
+
+            // Sending a post request with the entered Login-credentials.
+            // Redirect to the chat-screen when backend answers with status-code 200.
+            // TODO: Make this more secure so not everybody can access the chat-page by entering the given link.
+            fetch('/handle_signin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username,
+                    password,
+                }),
+            }).then((res) => {
+                const loginState = document.getElementById("loginState");
+                if(res.status < 300){
+                    loginState.innerHTML = "login success";
+                    document.cookie = "username" + "=" + username + ";path=/chat-"+username;
+                    window.location.assign("/chat-"+username);
+                } else {
+                    loginState.innerHTML = "invalid credentials";
+                }
+                return res.json();
+            })
+        });
+</script>
+</body>
+</html>

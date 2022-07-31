@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 30s
+scrape_configs:
+  - job_name: chat-application
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    honor_labels: true
+    static_configs:
+      - targets: ['loadbalancer:80']

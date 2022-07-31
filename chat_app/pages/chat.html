@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.IO chat</title>
+    <style>
+        html {
+            height: 100%;
+        }
+
+        body {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        #main {
+            display: flex;
+            flex-direction: row;
+            height: 100%;
+        }
+
+        #usernameHeadline {
+            text-align: center;
+            margin: 0;
+            padding: 15px;
+            background: #acacac;
+        }
+
+        #form {
+            background: rgba(0, 0, 0, 0.15);
+            width: 100%;
+            margin-left: auto;
+            padding: 0.25rem;
+            /*position: fixed;*/
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            /* height: 3rem;*/
+            box-sizing: border-box;
+            backdrop-filter: blur(10px);
+        }
+
+        #input {
+            border: none;
+            padding: 0 1rem;
+            flex-grow: 1;
+            border-radius: 0.5rem;
+            margin: 0.25rem;
+        }
+
+        #input:focus {
+            outline: none;
+        }
+
+        #form > button {
+            background: #333;
+            border: none;
+            padding: 0 1rem;
+            margin: 0.25rem;
+            border-radius: 3px;
+            outline: none;
+            color: #fff;
+        }
+
+        #right-container {
+            display: flex;
+            flex-direction: column;
+            flex: 2;
+            width: 100%;
+            min-height: 100%;
+        }
+
+        #message-box {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            height: 100%;
+            min-height: 0;
+            background-color: #333333;
+        }
+
+        #message-container {
+            overflow: auto;
+        }
+
+        #messages {
+            list-style-type: none;
+            margin: 0.75em 20%;
+            padding: 0;
+        }
+
+        #messages > li {
+            padding: 0.5rem 1rem;
+            margin-top: 0.5rem;
+            border-radius: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            flex-wrap: wrap
+        }
+
+        #messages > li * {
+            max-width: 100%;
+        }
+
+        #messages > li:nth-child(odd) {
+            background: #efefef;
+        }
+
+        #messages > li:nth-child(even) {
+            background: #bdbdbd;
+        }
+
+        #messages > li .time {
+            align-self: flex-end;
+            font-size: small;
+        }
+
+        #messages > li .message {
+            flex-grow: 1;
+            width: 100%;
+            overflow-wrap: break-word
+        }
+    </style>
+</head>
+
+<body>
+<div id="main">
+    <div style="width: 25%">
+        <h2 id="usernameHeadline"></h2>
+        <h3>Online Users:</h3>
+        <ul id="onlineUsers"></ul>
+    </div>
+    <div id="right-container">
+        <div id="message-box">
+
+            <div id="message-container">
+                <ul id="messages"></ul>
+            </div>
+        </div>
+
+        <form id="form" action="">
+            <fieldset id="receivers">
+                <legend>Send to</legend>
+                <label for="All"><input type="checkbox" value="All" name="receivers" id="All" checked>All</label>
+                <ul id="onlineReceivers"></ul>
+            </fieldset>
+            <input id="input" autocomplete="off"/><input type="file" id="open"/>
+            <button>Send</button>
+        </form>
+    </div>
+
+</div>
+
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+    const socket = io();
+
+    socket.on("connect_error", (err) => {
+        console.log(`connect_error due to ${err.message}`);
+    });
+
+    const username = getCookie("username")
+    const usernameSocket = {username: username, socketID: socket.id}
+    const usernameHeadline = document.getElementById("usernameHeadline");
+    usernameHeadline.innerHTML = "Welcome to the chatroom: " + username;
+
+
+    const messages = document.getElementById('messages');
+    const onlineUsers = document.getElementById('onlineUsers');
+    const form = document.getElementById('form');
+    const onlineReceivers = document.getElementById('onlineReceivers');
+    const input = document.getElementById('input');
+    const open = document.getElementById('open');
+    let listOfOnlineUsers = [];
+
+    // send name of newly connected user to server
+    socket.emit('user-connect', username);
+    appendMessage('You', 'joined the chat room', new Date(Date.now()));
+
+
+    //function to get a cookie by its name
+    function getCookie(cname) {
+        let name = cname + "=";
+        let decodedCookie = decodeURIComponent(document.cookie);
+        let ca = decodedCookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) === ' ') {
+                c = c.substring(1);
+            }
+            if (c.indexOf(name) === 0) {
+                return c.substring(name.length, c.length);
+            }
+        }
+        return "";
+    }
+
+    function createMessage(text, sender, receiver, file) {
+        const item = document.createElement('li');
+        item.textContent = text;
+        if (file !== null && file !== undefined) {
+            console.log(file);
+            item.appendChild(file);
+        }
+        return item;
+    }
+
+    function appendMessage(name, message, time) {
+        const item = document.createElement('li');
+        console.log(time);
+        const timeFormatted = time.getHours().toString().padStart(2, '0') + ':' + time.getMinutes().toString().padStart(2, '0');
+        item.innerHTML = '<a class="message">' + name + ': <br>' + message + '</a> <a class="time">' + timeFormatted + '</a>'
+        let elem = document.getElementById('message-container');
+
+        // first check if user is fully scrolled down, then append child + scroll down to new child
+        // else only append without scrolling
+        if (elem.scrollHeight - Math.round(elem.scrollTop) === elem.clientHeight) {
+            messages.appendChild(item);
+            elem.scrollTop = elem.scrollHeight;
+        } else {
+            messages.appendChild(item);
+        }
+    }
+
+    // In this function, shows the serverside list of all online users in our UI, but just if the user is not the logged in user.
+    function setOnlineUsers(nameArray) {
+        onlineUsers.innerHTML = '<ul id="onlineUsers">' + '</ul>';
+        for (let i = 0; i < nameArray.length; i++) {
+            if (username !== nameArray[i]) {
+                const item = document.createElement('li');
+                item.innerHTML = '<a class="onlineUser">' + nameArray[i] + '</a>'
+                onlineUsers.appendChild(item);
+            }
+
+        }
+    }
+
+    function updateListOfOnlineUsers(onlineUsers) {
+        const tempList = [];
+        for (let i = 0; i < onlineUsers.length; i++) {
+            if (username !== onlineUsers[i]) {
+                tempList.push(onlineUsers[i])
+            }
+        }
+        listOfOnlineUsers = tempList;
+        console.log(listOfOnlineUsers)
+    }
+
+    function setUserSelectionList(availableUsers) {
+        onlineReceivers.innerHTML = '<div></div>'
+        for (let i = 0; i < availableUsers.length; i++) {
+            if (username !== availableUsers[i]) {
+                const username = availableUsers[i];
+                const item = document.createElement('div');
+                item.innerHTML = '<label for="' + username + '"> <input type="checkbox" name="receivers" value="' + username + '" id="' + username + '">' + username + '</label>';
+                onlineReceivers.appendChild(item);
+            }
+        }
+    }
+
+
+    // this gets triggered when hitting the "send"-button.
+    // If a text or a file is ready to send the message will be emitted.
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        if (input.value !== "") {
+            const timestamp = Date.now()
+            let message;
+            let messageType;
+            let checkboxes = document.querySelectorAll('input[name="receivers"]:checked');
+            let receivers = []
+            checkboxes.forEach((checkbox => {
+                if (checkbox.value === 'All') {
+                    messageType = 'broadcast'
+                } else {
+                    receivers.push(checkbox.value);
+                }
+            }))
+            if (messageType === 'broadcast') {
+                message = {message: input.value, time: timestamp}
+            } else if (receivers.length === 1) {
+                messageType = 'unicast'
+                message = {message: input.value, time: timestamp, receiver: receivers[0]}
+            } else {
+                messageType = 'multicast'
+                message = {message: input.value, time: timestamp, receivers: receivers}
+            }
+            console.log(message);
+            socket.emit(messageType, message);
+            appendMessage('You', message.message, new Date(message.time));
+            input.value = '';
+        }
+
+        const data = open.files[0];
+        if (data !== null && data !== undefined) {
+            const reader = new FileReader();
+
+            reader.onload = e => {
+                const msg = {};
+                msg.file = e.target.result;
+                msg.fileName = data.name;
+                socket.emit('multimedia', msg);
+                open.value = "";
+            };
+            reader.readAsDataURL(data);
+        }
+    });
+
+    socket.on('online-users', data => {
+        setOnlineUsers(data);
+        setUserSelectionList(data);
+        updateListOfOnlineUsers(data)
+    });
+
+
+    socket.on('user-connect', data => {
+        appendMessage(data.username, 'joined the chat room', new Date(data.time));
+        window.scrollTo(0, document.body.scrollHeight);
+    });
+
+    socket.on('user-disconnect', data => {
+        appendMessage(data.username, 'disconnected from the chat room', new Date(data.time));
+        window.scrollTo(0, document.body.scrollHeight);
+    });
+
+
+    socket.on('chat-message', msg => {
+        appendMessage(msg.name, msg.message, new Date(msg.time));
+        window.scrollTo(0, document.body.scrollHeight);
+    });
+
+    socket.on('multimedia', function (msg) {
+        const extension = msg.fileName.substring(
+            msg.fileName.lastIndexOf('.') + 1
+        );
+
+        // recognizing the file type, to properly show it in the UI.
+        switch (extension) {
+            case "jpg":
+            case "png":
+            case "gif":
+            case "svg":
+            case "webp":
+                const newImage = document.createElement('img');
+                newImage.setAttribute('alt', msg.fileName);
+                newImage.setAttribute('max-height', '200px');
+                newImage.src = msg.file;
+                messages.appendChild(createMessage(null, null, null, newImage));
+                break;
+            case "mp4":
+            case "webm":
+                const newVideo = document.createElement('video');
+                newVideo.setAttribute('type', `video/${extension}`);
+                newVideo.setAttribute('controls', 'True');
+                newVideo.setAttribute('max-height', '400');
+                newVideo.src = msg.file;
+                messages.appendChild(createMessage(null, null, null, newVideo));
+                break;
+            case "mp3":
+            case "wav":
+                const newAudio = document.createElement('audio');
+                newAudio.setAttribute('type', `audio/${extension}`);
+                newAudio.setAttribute('controls', 'True');
+                newAudio.src = msg.file;
+                messages.appendChild(createMessage(null, null, null, newAudio));
+                break;
+            case 'docx':
+            case 'xlsx':
+            case 'pptx':
+            case 'pdf':
+            case 'odt':
+            case 'odp':
+            case 'rtf':
+                console.log('PDF: ', msg);
+                const newFile = document.createElement('iframe');
+                newFile.setAttribute('max-height', '400px');
+                newFile.src = msg.file;
+                messages.appendChild(createMessage(null, null, null, newFile));
+                break;
+        }
+    });
+</script>
+</body>
+</html>
